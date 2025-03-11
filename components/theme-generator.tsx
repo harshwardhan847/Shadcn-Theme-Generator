@@ -414,10 +414,10 @@ const createBackgroundVariations = (
     const background = baseColor; // Usually "#ffffff" or similar
     return {
       background,
-      card: background, // Same as background
-      popover: background, // Same as background
-      border: adjustLightness(background, -5), // Slightly darker for borders
-      input: adjustLightness(background, -5), // Slightly darker for inputs
+      card: adjustLightness(background, 3), // Same as background
+      popover: adjustLightness(background, 3), // Same as background
+      border: adjustLightness(background, -8), // Slightly darker for borders
+      input: adjustLightness(background, -10), // Slightly darker for inputs
     };
   }
 };
@@ -536,7 +536,7 @@ export default function ThemeGenerator() {
     const palette = generatePalette(baseColor, paletteType);
 
     // Light theme constants
-    const lightBg = "#ffffff";
+    const lightBg = adjustSaturation(adjustLightness(palette[1], 10), -50);
     const lightFg = "#09090b";
 
     // Dark theme constants
@@ -657,222 +657,233 @@ export default function ThemeGenerator() {
   };
 
   return (
-    <div className="container bg-background text-foreground mx-auto py-6 space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold">Shadcn UI Theme Generator</h1>
-        <p className="text-muted-foreground">
-          Customize your theme with this interactive generator
-        </p>
-      </header>
+    <div
+      className={cn(
+        "transition-colors w-full h-full bg-background text-foreground",
+        previewMode === "dark" ? "dark" : ""
+      )}
+    >
+      <div className="container  mx-auto py-6 space-y-6">
+        <header className="space-y-2">
+          <h1 className="text-3xl font-bold">Shadcn UI Theme Generator</h1>
+          <p className="text-muted-foreground">
+            Customize your theme with this interactive generator
+          </p>
+        </header>
 
-      <div className="grid lg:grid-cols-[300px_1fr] gap-6">
-        {/* Theme Controls */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Theme Controls</CardTitle>
-              <CardDescription>
-                Customize your theme colors and radius
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Tabs defaultValue="light">
-                <div className="flex justify-between items-center mb-4">
-                  <TabsList>
-                    <TabsTrigger value="light">Light</TabsTrigger>
-                    <TabsTrigger value="dark">Dark</TabsTrigger>
+        <div className="grid lg:grid-cols-[300px_1fr] gap-6">
+          {/* Theme Controls */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>Theme Controls</CardTitle>
+                <CardDescription>
+                  Customize your theme colors and radius
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Tabs defaultValue="light">
+                  <div className="flex justify-between items-center mb-4">
+                    <TabsList>
+                      <TabsTrigger value="light">Light</TabsTrigger>
+                      <TabsTrigger value="dark">Dark</TabsTrigger>
+                    </TabsList>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setPreviewMode("light")}
+                        className={cn(
+                          "h-8 w-8",
+                          previewMode === "light" && "border-primary"
+                        )}
+                      >
+                        <Sun className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setPreviewMode("dark")}
+                        className={cn(
+                          "h-8 w-8",
+                          previewMode === "dark" && "border-primary"
+                        )}
+                      >
+                        <Moon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <TabsContent value="light" className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      {Object.entries(lightTheme).map(([key, value]) => {
+                        if (key === "radius") return null;
+                        return (
+                          <ColorPicker
+                            key={key}
+                            label={key}
+                            color={value}
+                            onChange={(color) =>
+                              updateThemeColor("light", key, color)
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="dark" className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      {Object.entries(darkTheme).map(([key, value]) => {
+                        if (key === "radius") return null;
+                        return (
+                          <ColorPicker
+                            key={key}
+                            label={key}
+                            color={value}
+                            onChange={(color) =>
+                              updateThemeColor("dark", key, color)
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="pt-4 border-t">
+                  <h3 className="text-sm font-medium mb-3">Border Radius</h3>
+                  <RadiusSlider
+                    value={Number.parseFloat(lightTheme.radius)}
+                    onChange={(value) => updateRadius(`${value}rem`)}
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-2">
+                <Button onClick={copyToClipboard} className="w-full">
+                  {copied ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" /> Copy CSS Variables
+                    </>
+                  )}
+                </Button>
+                <div className="flex gap-2 w-full">
+                  <Button
+                    variant="outline"
+                    onClick={resetThemes}
+                    className="flex-1"
+                  >
+                    Reset
+                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          onClick={generateRandomTheme}
+                          className="flex-1"
+                        >
+                          <Wand2 className="mr-2 h-4 w-4" /> Random Theme
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Generate a random theme with good contrast</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                <div className="pt-2 w-full">
+                  <label className="text-sm font-medium mb-2 block">
+                    Color Palette Style
+                  </label>
+                  <Select
+                    value={paletteType}
+                    onValueChange={(value) =>
+                      setPaletteType(value as PaletteType)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select palette type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monochromatic">
+                        Monochromatic
+                      </SelectItem>
+                      <SelectItem value="analogous">Analogous</SelectItem>
+                      <SelectItem value="complementary">
+                        Complementary
+                      </SelectItem>
+                      <SelectItem value="triadic">Triadic</SelectItem>
+                      <SelectItem value="tetradic">Tetradic</SelectItem>
+                      <SelectItem value="pastel">Pastel</SelectItem>
+                      <SelectItem value="vibrant">Vibrant</SelectItem>
+                      <SelectItem value="earthy">Earthy</SelectItem>
+                      <SelectItem value="cool">Cool</SelectItem>
+                      <SelectItem value="warm">Warm</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardFooter>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>CSS Variables</CardTitle>
+                <CardDescription>Copy these to your project</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <pre className="p-4 bg-muted rounded-md text-xs overflow-auto max-h-[300px]">
+                  {generateCssVariables()}
+                </pre>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Preview Area */}
+          <div>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>Preview</CardTitle>
+                <CardDescription>See how your theme looks</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Tabs
+                  value={activeTab}
+                  onValueChange={setActiveTab}
+                  className="w-full"
+                >
+                  <TabsList className="w-full justify-start border-b rounded-none px-6">
+                    <TabsTrigger value="components">Components</TabsTrigger>
+                    <TabsTrigger value="landing">Landing Page</TabsTrigger>
                   </TabsList>
 
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setPreviewMode("light")}
-                      className={cn(
-                        "h-8 w-8",
-                        previewMode === "light" && "border-primary"
-                      )}
-                    >
-                      <Sun className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setPreviewMode("dark")}
-                      className={cn(
-                        "h-8 w-8",
-                        previewMode === "dark" && "border-primary"
-                      )}
-                    >
-                      <Moon className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <TabsContent value="light" className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    {Object.entries(lightTheme).map(([key, value]) => {
-                      if (key === "radius") return null;
-                      return (
-                        <ColorPicker
-                          key={key}
-                          label={key}
-                          color={value}
-                          onChange={(color) =>
-                            updateThemeColor("light", key, color)
-                          }
-                        />
-                      );
-                    })}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="dark" className="space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    {Object.entries(darkTheme).map(([key, value]) => {
-                      if (key === "radius") return null;
-                      return (
-                        <ColorPicker
-                          key={key}
-                          label={key}
-                          color={value}
-                          onChange={(color) =>
-                            updateThemeColor("dark", key, color)
-                          }
-                        />
-                      );
-                    })}
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              <div className="pt-4 border-t">
-                <h3 className="text-sm font-medium mb-3">Border Radius</h3>
-                <RadiusSlider
-                  value={Number.parseFloat(lightTheme.radius)}
-                  onChange={(value) => updateRadius(`${value}rem`)}
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-2">
-              <Button onClick={copyToClipboard} className="w-full">
-                {copied ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" /> Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" /> Copy CSS Variables
-                  </>
-                )}
-              </Button>
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant="outline"
-                  onClick={resetThemes}
-                  className="flex-1"
-                >
-                  Reset
-                </Button>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        onClick={generateRandomTheme}
-                        className="flex-1"
-                      >
-                        <Wand2 className="mr-2 h-4 w-4" /> Random Theme
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Generate a random theme with good contrast</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              <div className="pt-2 w-full">
-                <label className="text-sm font-medium mb-2 block">
-                  Color Palette Style
-                </label>
-                <Select
-                  value={paletteType}
-                  onValueChange={(value) =>
-                    setPaletteType(value as PaletteType)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select palette type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monochromatic">Monochromatic</SelectItem>
-                    <SelectItem value="analogous">Analogous</SelectItem>
-                    <SelectItem value="complementary">Complementary</SelectItem>
-                    <SelectItem value="triadic">Triadic</SelectItem>
-                    <SelectItem value="tetradic">Tetradic</SelectItem>
-                    <SelectItem value="pastel">Pastel</SelectItem>
-                    <SelectItem value="vibrant">Vibrant</SelectItem>
-                    <SelectItem value="earthy">Earthy</SelectItem>
-                    <SelectItem value="cool">Cool</SelectItem>
-                    <SelectItem value="warm">Warm</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>CSS Variables</CardTitle>
-              <CardDescription>Copy these to your project</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <pre className="p-4 bg-muted rounded-md text-xs overflow-auto max-h-[300px]">
-                {generateCssVariables()}
-              </pre>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Preview Area */}
-        <div>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Preview</CardTitle>
-              <CardDescription>See how your theme looks</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="w-full"
-              >
-                <TabsList className="w-full justify-start border-b rounded-none px-6">
-                  <TabsTrigger value="components">Components</TabsTrigger>
-                  <TabsTrigger value="landing">Landing Page</TabsTrigger>
-                </TabsList>
-
-                <div
-                  className={cn(
-                    "transition-colors",
-                    previewMode === "dark" ? "dark" : ""
-                  )}
-                >
-                  <TabsContent value="components" className="p-6 mt-0">
-                    <ComponentPreview />
-                  </TabsContent>
-
-                  <TabsContent
-                    value="landing"
-                    className="p-6 mt-0 bg-background text-foreground"
+                  <div
+                    className={cn(
+                      "transition-colors",
+                      previewMode === "dark" ? "dark" : ""
+                    )}
                   >
-                    <LandingPreview />
-                  </TabsContent>
-                </div>
-              </Tabs>
-            </CardContent>
-          </Card>
+                    <TabsContent value="components" className="p-6 mt-0">
+                      <ComponentPreview />
+                    </TabsContent>
+
+                    <TabsContent
+                      value="landing"
+                      className="p-6 mt-0 bg-background text-foreground"
+                    >
+                      <LandingPreview />
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
