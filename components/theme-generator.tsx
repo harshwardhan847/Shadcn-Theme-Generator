@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Moon, Sun, Wand2 } from "lucide-react";
+import { Check, Copy, Moon, Sun, Wand2, Trash2, Save } from "lucide-react";
 import { useTheme } from "next-themes";
 import ColorPicker from "@/components/color-picker";
 import ComponentPreview from "@/components/component-preview";
@@ -31,6 +31,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast, Toaster } from "sonner";
 
 // Default theme values based on Shadcn UI
 const defaultLightTheme = {
@@ -91,6 +104,14 @@ type PaletteType =
   | "earthy"
   | "cool"
   | "warm";
+
+// Define the structure for a saved theme
+interface SavedTheme {
+  name: string;
+  light: typeof defaultLightTheme;
+  dark: typeof defaultDarkTheme;
+  timestamp: number;
+}
 
 // Color conversion utilities
 const hexToRgb = (hex: string): [number, number, number] => {
@@ -269,10 +290,6 @@ const ensureContrast = (
   return newColor;
 };
 
-// Update the generatePalette function to create more diverse and usable palettes
-
-// Replace the existing generatePalette function with this improved version:
-
 // Function to generate a color palette based on a base color
 const generatePalette = (baseColor: string, type: PaletteType): string[] => {
   const [h, s, l] = hexToHsl(baseColor);
@@ -384,10 +401,6 @@ const kebabCase = (str: string): string => {
   return str.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 };
 
-// Add a new function to create more sophisticated background variations
-
-// Add this function after the other color utility functions:
-
 // Function to create subtle background variations
 const createBackgroundVariations = (
   baseColor: string,
@@ -400,24 +413,22 @@ const createBackgroundVariations = (
   input: string;
 } => {
   if (isDark) {
-    // For dark themes, we want subtle lighter variations
-    const background = baseColor; // Usually "#09090b" or similar
+    const background = baseColor;
     return {
       background,
-      card: adjustLightness(background, 2), // Slightly lighter
-      popover: adjustLightness(background, 3), // Slightly lighter than card
-      border: adjustLightness(background, 10), // Visible but subtle border
-      input: adjustLightness(background, 8), // Visible form elements
+      card: adjustLightness(background, 2),
+      popover: adjustLightness(background, 3),
+      border: adjustLightness(background, 10),
+      input: adjustLightness(background, 8),
     };
   } else {
-    // For light themes, we want subtle darker/grayer variations
-    const background = baseColor; // Usually "#ffffff" or similar
+    const background = baseColor;
     return {
       background,
-      card: adjustLightness(background, 3), // Same as background
-      popover: adjustLightness(background, 3), // Same as background
-      border: adjustLightness(background, -8), // Slightly darker for borders
-      input: adjustLightness(background, -10), // Slightly darker for inputs
+      card: adjustLightness(background, 3),
+      popover: adjustLightness(background, 3),
+      border: adjustLightness(background, -8),
+      input: adjustLightness(background, -10),
     };
   }
 };
@@ -432,25 +443,49 @@ export default function ThemeGenerator() {
     "system"
   );
   const [paletteType, setPaletteType] = useState<PaletteType>("complementary");
+  const [savedThemes, setSavedThemes] = useState<SavedTheme[]>([]);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [newThemeName, setNewThemeName] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // State for delete dialog
+  const [themeToDelete, setThemeToDelete] = useState<SavedTheme | null>(null); // State to hold theme being deleted
 
-  // Apply theme changes to document
+  useEffect(() => {
+    try {
+      const storedThemes = localStorage.getItem("shadcnSavedThemes");
+      if (storedThemes) {
+        setSavedThemes(JSON.parse(storedThemes));
+      }
+    } catch (error) {
+      console.error("Failed to load themes from local storage:", error);
+      toast.error("Could not load saved themes from local storage.");
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("shadcnSavedThemes", JSON.stringify(savedThemes));
+    } catch (error) {
+      console.error("Failed to save themes to local storage:", error);
+      toast.error(
+        "Could not save themes to local storage. Storage might be full."
+      );
+    }
+  }, [savedThemes]);
+
   useEffect(() => {
     const root = document.documentElement;
 
-    // Apply light theme variables
     Object.entries(lightTheme).forEach(([key, value]) => {
       if (key === "radius") {
         root.style.setProperty("--radius", value);
         return;
       }
-      // Convert hex to hsl for shadcn compatibility
       const hslValue = hexToHSL(value);
       if (hslValue) {
         root.style.setProperty(`--${kebabCase(key)}`, hslValue);
       }
     });
 
-    // Apply dark theme variables within the dark selector
     const darkStyles = Object.entries(darkTheme)
       .filter(([key]) => key !== "radius")
       .map(([key, value]) => {
@@ -459,7 +494,6 @@ export default function ThemeGenerator() {
       })
       .join("\n");
 
-    // Update or create the dark mode style element
     let darkStyleElement = document.getElementById("dark-theme-vars");
     if (!darkStyleElement) {
       darkStyleElement = document.createElement("style");
@@ -469,7 +503,6 @@ export default function ThemeGenerator() {
     darkStyleElement.textContent = `.dark {\n${darkStyles}\n}`;
   }, [lightTheme, darkTheme]);
 
-  // Update a specific color in the theme
   const updateThemeColor = (
     themeType: "light" | "dark",
     key: string,
@@ -482,13 +515,11 @@ export default function ThemeGenerator() {
     }
   };
 
-  // Update radius for both themes
   const updateRadius = (value: string) => {
     setLightTheme((prev) => ({ ...prev, radius: value }));
     setDarkTheme((prev) => ({ ...prev, radius: value }));
   };
 
-  // Generate CSS variables for copying
   const generateCssVariables = () => {
     const lightVars = Object.entries(lightTheme)
       .map(([key, value]) => {
@@ -512,143 +543,96 @@ export default function ThemeGenerator() {
     return `:root {\n${lightVars}\n}\n\n.dark {\n${darkVars}\n}`;
   };
 
-  // Copy CSS variables to clipboard
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generateCssVariables());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Reset themes to default
   const resetThemes = () => {
     setLightTheme(defaultLightTheme);
     setDarkTheme(defaultDarkTheme);
   };
 
-  // Now update the generateRandomTheme function to use this new function:
-
-  // Enhanced function to generate a random theme
   const generateRandomTheme = () => {
-    // Generate a base color for the palette
     const baseColor = randomColor();
-
-    // Generate a palette based on the selected type
     const palette = generatePalette(baseColor, paletteType);
 
-    // Light theme constants
     const lightBg = adjustSaturation(adjustLightness(palette[1], 10), -50);
     const lightFg = "#09090b";
 
-    // Dark theme constants
     const darkBg = "#09090b";
     const darkFg = "#ffffff";
 
-    // Create background variations
     const lightBackgrounds = createBackgroundVariations(lightBg, false);
     const darkBackgrounds = createBackgroundVariations(darkBg, true);
 
-    // Create light theme with ALL variables properly set
     const newLightTheme = {
-      // Base colors
       background: lightBackgrounds.background,
       foreground: lightFg,
-
-      // Card and popover
       card: lightBackgrounds.card,
       cardForeground: lightFg,
       popover: lightBackgrounds.popover,
       popoverForeground: lightFg,
-
-      // Primary colors - use the base color from the palette
       primary: palette[0],
       primaryForeground: ensureContrast(palette[0], "#ffffff"),
-
-      // Secondary colors - use a different color from the palette
       secondary: adjustLightness(palette[1], 30),
       secondaryForeground: ensureContrast(
         adjustLightness(palette[1], 30),
         lightFg
       ),
-
-      // Muted colors - desaturated version of secondary
       muted: adjustSaturation(adjustLightness(palette[1], 35), -30),
       mutedForeground: ensureContrast(
         adjustSaturation(adjustLightness(palette[1], 35), -30),
         "#71717a",
         3
       ),
-
-      // Accent colors - use another color from the palette
       accent: adjustLightness(palette[2], 30),
       accentForeground: ensureContrast(
         adjustLightness(palette[2], 30),
         lightFg
       ),
-
-      // Destructive colors - typically red
       destructive: "#ef4444",
       destructiveForeground: "#ffffff",
-
-      // Border and input colors
       border: lightBackgrounds.border,
       input: lightBackgrounds.input,
       ring: adjustLightness(palette[0], 20),
-
-      // Keep the existing radius
       radius: lightTheme.radius,
     };
 
-    // Create dark theme with ALL variables properly set
     const newDarkTheme = {
-      // Base colors
       background: darkBackgrounds.background,
       foreground: darkFg,
-
-      // Card and popover
       card: darkBackgrounds.card,
       cardForeground: darkFg,
       popover: darkBackgrounds.popover,
       popoverForeground: darkFg,
-
-      // Primary colors - use a brighter version of the base color
       primary: adjustLightness(palette[0], 20),
       primaryForeground: ensureContrast(
         adjustLightness(palette[0], 20),
         darkBg
       ),
-
-      // Secondary colors - darker version of the palette color
       secondary: adjustLightness(palette[1], -30),
       secondaryForeground: ensureContrast(
         adjustLightness(palette[1], -30),
         darkFg
       ),
-
-      // Muted colors - very dark version of secondary
       muted: adjustLightness(palette[1], -40),
       mutedForeground: ensureContrast(
         adjustLightness(palette[1], -40),
         "#a1a1aa",
         3
       ),
-
-      // Accent colors - darker version of the accent
       accent: adjustLightness(palette[2], -30),
       accentForeground: ensureContrast(
         adjustLightness(palette[2], -30),
         darkFg
       ),
-
-      // Destructive colors - darker red
       destructive: "#7f1d1d",
       destructiveForeground: "#ef4444",
-
-      // Border and input colors
       border: darkBackgrounds.border,
       input: darkBackgrounds.input,
       ring: adjustLightness(palette[0], -20),
-
-      // Keep the existing radius
       radius: darkTheme.radius,
     };
 
@@ -656,14 +640,60 @@ export default function ThemeGenerator() {
     setDarkTheme(newDarkTheme);
   };
 
+  const handleSaveTheme = () => {
+    const themeName = newThemeName.trim();
+    if (themeName) {
+      const newSavedTheme: SavedTheme = {
+        name: themeName,
+        light: { ...lightTheme },
+        dark: { ...darkTheme },
+        timestamp: Date.now(),
+      };
+      setSavedThemes((prev) => [...prev, newSavedTheme]);
+      toast.success(`Theme "${newSavedTheme.name}" saved!`);
+      setIsSaveDialogOpen(false); // Close the dialog
+      setNewThemeName(""); // Reset input field
+    } else {
+      toast.error("Theme name cannot be empty.");
+      // Keep dialog open for correction
+    }
+  };
+
+  const prepareSaveDialog = () => {
+    setNewThemeName(`Theme ${savedThemes.length + 1}`); // Pre-fill default name
+    setIsSaveDialogOpen(true);
+  };
+
+  const applySavedTheme = (themeToApply: SavedTheme) => {
+    setLightTheme(themeToApply.light);
+    setDarkTheme(themeToApply.dark);
+    toast.info(`Applied theme: "${themeToApply.name}"`);
+  };
+
+  const prepareDeleteDialog = (theme: SavedTheme) => {
+    setThemeToDelete(theme);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (themeToDelete) {
+      setSavedThemes((prev) =>
+        prev.filter((theme) => theme.timestamp !== themeToDelete.timestamp)
+      );
+      toast.success(`Theme "${themeToDelete.name}" deleted.`);
+      setThemeToDelete(null);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
   return (
     <div
       className={cn(
-        "transition-colors w-full h-full bg-background text-foreground",
+        "transition-colors w-full min-h-screen bg-background text-foreground",
         previewMode === "dark" ? "dark" : ""
       )}
     >
-      <div className="container  mx-auto py-6 space-y-6">
+      <div className="container mx-auto py-6 space-y-6">
         <header className="space-y-2">
           <h1 className="text-3xl font-bold">Shadcn UI Theme Generator</h1>
           <p className="text-muted-foreground">
@@ -671,8 +701,87 @@ export default function ThemeGenerator() {
           </p>
         </header>
 
+        {savedThemes.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Saved Themes</CardTitle>
+              <CardDescription>Click to apply a saved theme.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {savedThemes.map((saved) => (
+                <div
+                  key={saved.timestamp}
+                  className="flex items-center gap-1 border rounded-md p-1 bg-card hover:shadow-sm transition-shadow"
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => applySavedTheme(saved)}
+                    className="flex-grow text-left justify-start h-auto py-1 px-2"
+                    title={`Apply theme: ${saved.name}`}
+                  >
+                    <span className="truncate max-w-[150px]">{saved.name}</span>
+                    <div className="flex gap-1 ml-2 flex-shrink-0">
+                      <div
+                        className="w-3 h-3 rounded-full border"
+                        style={{ backgroundColor: saved.light.primary }}
+                      ></div>
+                      <div
+                        className="w-3 h-3 rounded-full border"
+                        style={{ backgroundColor: saved.dark.primary }}
+                      ></div>
+                    </div>
+                  </Button>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive flex-shrink-0"
+                          onClick={() => prepareDeleteDialog(saved)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Delete theme: {saved.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Theme</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete the theme{" "}
+                <strong>"{themeToDelete?.name}"</strong>? This action cannot be
+                undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button
+                  variant="outline"
+                  onClick={() => setThemeToDelete(null)}
+                >
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button variant="destructive" onClick={handleConfirmDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <div className="grid lg:grid-cols-[300px_1fr] gap-6">
-          {/* Theme Controls */}
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
@@ -773,6 +882,49 @@ export default function ThemeGenerator() {
                   )}
                 </Button>
                 <div className="flex gap-2 w-full">
+                  <Dialog
+                    open={isSaveDialogOpen}
+                    onOpenChange={setIsSaveDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="flex-1">
+                        <Save className="mr-2 h-4 w-4" /> Save Theme
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Save Theme</DialogTitle>
+                        <DialogDescription>
+                          Enter a name for your new theme configuration.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="theme-name" className="text-right">
+                            Name
+                          </Label>
+                          <Input
+                            id="theme-name"
+                            value={newThemeName}
+                            onChange={(e) => setNewThemeName(e.target.value)}
+                            className="col-span-3"
+                            placeholder={`Theme ${savedThemes.length + 1}`}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button type="button" variant="outline">
+                            Cancel
+                          </Button>
+                        </DialogClose>
+                        <Button type="button" onClick={handleSaveTheme}>
+                          Save Theme
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
                   <Button
                     variant="outline"
                     onClick={resetThemes}
@@ -780,6 +932,8 @@ export default function ThemeGenerator() {
                   >
                     Reset
                   </Button>
+                </div>
+                <div className="flex gap-2 w-full">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -845,7 +999,6 @@ export default function ThemeGenerator() {
             </Card>
           </div>
 
-          {/* Preview Area */}
           <div>
             <Card>
               <CardHeader className="pb-3">
@@ -886,6 +1039,7 @@ export default function ThemeGenerator() {
           </div>
         </div>
       </div>
+      <Toaster richColors position="top-right" />
     </div>
   );
 }
